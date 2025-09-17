@@ -19,6 +19,7 @@ Using **uv** (recommended):
 uv add pandas numpy openpyxl python-dateutil reportlab PyPDF2
 
 # Using pip (alternative):
+python -m pip ensure --upgrade
 python -m pip install --upgrade pip
 python -m pip install pandas numpy openpyxl python-dateutil reportlab PyPDF2
 # Note: We intentionally do not install the large legacy requirements file. The scripts only need the few packages above to run.
