@@ -1,0 +1,144 @@
+# RUN-LEGACY
+
+This folder contains the **original, “as-is”** Utility Billing scripts. The goal is to make them runnable for a baseline (“before”) snapshot, without refactoring.
+
+> ✅ Everything needed to run lives here:  
+> `App.py`, `CalcUtilityBillings.py`, `InvoiceGenerator.py`, `ITEX_logo.png`, and `data/` (inputs/outputs).
+
+---
+
+## 1) Prereqs
+
+- Python 3.11+ (Windows + Git Bash is fine)
+- Excel input files saved as `.xlsx` (not `.xls`)
+- Minimal Python packages:
+
+Using **uv** (recommended):
+```bash
+# from repo root (or from this folder)
+uv add pandas numpy openpyxl python-dateutil reportlab PyPDF2
+
+# Using pip (alternative):
+python -m pip install --upgrade pip
+python -m pip install pandas numpy openpyxl python-dateutil reportlab PyPDF2
+# Note: We intentionally do not install the large legacy requirements file. The scripts only need the few packages above to run.
+```
+
+## 2) Folder layout
+```bash
+src/utility_billing_legacy/
+├─ App.py
+├─ CalcUtilityBillings.py
+├─ InvoiceGenerator.py
+├─ ITEX_logo.png              # used by InvoiceGenerator at ./ITEX_logo.png
+├─ README.md                  # original scope/notes
+├─ requirements_legacy.txt    # archived, not installed
+└─ data/
+   ├─ raw/                    # place your input workbooks here
+   └─ out/                    # optional: target for outputs (or run from here)
+
+```
+Keep ITEX_logo.png in this folder so the hardcoded path in App.py works without edits.
+
+## 3) Required inputs (Excel)
+Place three workbooks in data/raw/:
+
+### Rent Roll
+Sheet: Report1
+
+Expected columns (names must match):
+Unit, Unit Type, Unit.1 (sqft), Resident, Name, Actual (rent),
+Move In, Lease, Move Out
+
+Code renames internally to:
+Unit_Type, SqFt, Rent, Lease_Exp, Move_In, Move_Out
+
+### GL Billings
+Sheet: Report1, usecols="A:K"
+
+Expected columns:
+gl_code (int), ar_gl_code (int), type (str), notes (str), expense_GL_code (int),
+property_code (str), billing_period_start (date), billing_period_end (date),
+amount (float), charge_date (date), post_month (date)
+
+Optional columns (if present are used):
+reading_prev, reading_current, bill_due_date, adj_rate
+
+### Property Data
+Workbook with multiple sheets:
+propertydata (usecols A:O)
+    Required columns:
+    property_code, property_name, address1, city, state, zip, phone,
+    primary_contact, email, website, gross_sf, net_sf, ttl_occ, disable_fee
+
+unitmix (usecols A:F)
+    Required columns:
+    Unit_Type, name, avg_sf, avg_rent, units, occ
+
+adjustments (usecols A:B)
+    Required columns:
+    type, adj_rate (float)
+
+## 4) Run commands
+Run from inside this folder so the logo path resolves:
+```bash
+cd src/utility_billing_legacy
+```
+
+### Basic run
+```bash
+python App.py \
+  -rr data/raw/<rent_roll>.xlsx \
+  -gl data/raw/<gl_billings>.xlsx \
+  -pdf data/raw/<property_data>.xlsx \
+  -n  ITEX_TestRun
+```
+    -rr → path to Rent Roll workbook
+    -gl → path to GL Billings workbook
+    -pdf → path to Property Data workbook (name reflects original code; it’s not actually a PDF)
+    -n → a run name used as the output file prefix
+
+### Outputs
+Created in the current working directory (i.e., this folder unless you cd elsewhere):
+    ITEX_TestRun_invoices.pdf – combined invoice PDF (one page per resident)
+    ITEX_TestRun_bdf.xlsx – billings detail dataframe
+    ITEX_TestRun_cdf.xlsx – tenant charge import dataframe
+If you prefer to write outputs into data/out/, simply cd data/out/ before running and adjust input paths accordingly (e.g., ../raw/<file>.xlsx).
+
+
+
+## 5) What the code does (quick map)
+App.py parses CLI flags, builds DataFrames via CalcUtilityBillings, and calls InvoiceGenerator.
+
+CalcUtilityBillings:
+    Reads all three Excel sources.
+    Computes proration by sqft, occupancy, and days in period.
+    Texas-specific rule: for type in {water, sewerbil} and state == 'TX', splits GL amount 50/50 and applies sqft+occ proration.
+    Adds a base fee ($4.50) unless disable_fee == 'Y'.
+    Produces per-resident bill rows, plus a Yardi-import-style charge file.
+
+InvoiceGenerator creates a page per resident using ReportLab, groups lines, and totals.
+
+## 6) Troubleshooting
+Missing columns / sheet not found
+Ensure sheet names and columns match exactly as above. The legacy code has minimal validation and will throw if names differ.
+
+Logo not found
+Make sure ITEX_logo.png is in this folder and that you run from here (or change the path in App.py where it instantiates InvoiceGenerator).
+
+Date parsing issues
+Inputs must be real Excel dates for billing_period_start, billing_period_end, charge_date, post_month and rent-roll dates. Text dates may fail.
+
+Weird totals in Texas
+The water/sewer split logic is hardcoded for state == 'TX' and type ∈ {water, sewerbil}. Other cases use sqft-only proration.
+
+Output location confusion
+Outputs are written to the current working directory, not automatically to data/out/. cd to where you want files to land before running.
+
+## 7) Notes for the refactor (future “after” work)
+Move business rules (state policies, fees) into a config file.
+Add schema validation for each sheet and clear error messages.
+Separate I/O, transforms, and rendering for testability.
+Replace manual sys.argv parsing with argparse.
+Add unit tests for proration math and TX 50/50 logic.
+Package as src/utility_billing/ with a proper CLI entry point.
