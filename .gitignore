@@ -1,0 +1,7 @@
+.venv/
+.ipynb_checkpoints/
+.jupyter/
+**/__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
