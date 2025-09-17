@@ -1,6 +1,5 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
   "python.terminal.activateEnvironment": true,
-  "jupyter.kernels.filter": ["Python (utility-billing)"],
   "jupyter.askForKernelRestart": false
 }

@@ -1,0 +1,41 @@
+[project]
+name = "utility-billing"
+version = "0.1.0"
+description = "Notebooks and code for the Utility Billing project"
+readme = "README.md"
+requires-python = ">=3.10"
+
+# Core runtime deps for notebooks
+dependencies = [
+  "jupyterlab",
+  "ipykernel",
+  "pandas>=2.3.2",
+  "matplotlib>=3.10.6",
+]
+
+# Optional but common data stack (uncomment as needed)
+# "pandas",
+# "numpy",
+# "pyarrow",
+# "polars",
+# "matplotlib",
+# "scikit-learn",
+
+[tool.uv]
+
+[tool.black]
+line-length = 100
+target-version = ["py311","py312","py313"]
+
+[tool.ruff]
+line-length = 100
+select = ["E","F","I","B","UP","FASTAPI","PANDAS"]
+ignore = ["E203"]  # if you like Black-compatible slicing
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pre-commit>=4.3.0",
+    "ruff>=0.13.0",
+]
+# (uv reads this file and produces a lock for reproducibility)
