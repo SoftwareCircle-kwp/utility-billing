@@ -5,3 +5,11 @@
 *.pyc
 .DS_Store
 Thumbs.db
+# legacy sandbox outputs
+src/utility_billing_legacy/data/raw/*
+!src/utility_billing_legacy/data/raw/.gitkeep
+src/utility_billing_legacy/data/out/*
+# generated files
+*_bdf.xlsx
+*_cdf.xlsx
+*_invoices.pdf
