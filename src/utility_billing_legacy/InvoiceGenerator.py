@@ -114,8 +114,26 @@ class InvoiceGenerator:
             total_due = Paragraph(total_due_text, styles["Justify"])
             content.append(total_due)
             content.append(Spacer(1, 0.2*inch))
-            # due date
-            date_due_text = f"Due Date: {str(group['bill_due_date'].iloc[0].strftime('%m/%d/%Y'))}"
+            
+            
+            # Original due date replaced
+            # date_due_text = f"Due Date: {str(group['bill_due_date'].iloc[0].strftime('%m/%d/%Y'))}"
+            # date_due = Paragraph(date_due_text, styles["Justify"])
+            # content.append(date_due)
+            # content.append(Spacer(1, 0.2*inch))
+
+            # New due date block
+            due_raw = group['bill_due_date'].iloc[0] if 'bill_due_date' in group else pd.NaT
+            due_dt = pd.to_datetime(due_raw, errors="coerce")
+
+            if pd.notna(due_dt):
+                date_due_text = f"Due Date: {due_dt.strftime('%m/%d/%Y')}"
+            elif isinstance(due_raw, str) and due_raw.strip():
+                # fallback if it's already a string
+                date_due_text = f"Due Date: {due_raw}"
+            else:
+                date_due_text = "Due Date:"
+
             date_due = Paragraph(date_due_text, styles["Justify"])
             content.append(date_due)
             content.append(Spacer(1, 0.2*inch))
