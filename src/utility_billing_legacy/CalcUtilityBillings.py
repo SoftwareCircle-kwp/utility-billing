@@ -198,7 +198,7 @@ class CalcUtilityBillings :
             xlf, sheet_name=sheet, usecols="A:K"
         )
         # Coerce expected columns
-        for c in ["amount"]
+        for c in ["amount"]:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors="coerce")
         for c in ["billing_period_start", "billing_period_end", "charge_date", "post_month"]:
