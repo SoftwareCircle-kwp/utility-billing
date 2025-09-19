@@ -59,7 +59,9 @@ class CalcUtilityBillings :
 
         self.gl_billing_xls_file = glFileName
 
-        self.gl_df = self.getPandasDFFromXls(glFileName)
+        #Remove
+        # self.gl_df = self.getPandasDFFromXls(glFileName)
+        self.gl_df = None  # defer; we load via getGLBillings() inside calcBillings
 
         self.property_data_file = pdFile
 
@@ -245,31 +247,53 @@ class CalcUtilityBillings :
         
         billing_period_start = gl_billings_df['billing_period_start'].iloc[0]
         billing_period_end = gl_billings_df['billing_period_end'].iloc[0]
+        
+        
+        # Removed
+        # if self.property_df is None :
+        #     self.getPropertyData(self.property_data_file)
+        # if self.unit_mix_df is None :
+        #     self.get_unit_mix_df(self.property_data_file)      
+        # if self.adj_df is None :
+        #     self.adj_df = self.get_adj_df(self.property_data_file)
+        # gl_billings_df = pd.merge(gl_billings_df, self.adj_df, on='type', how='left')
+        
+        # NEW: ensure numeric + datetime dtypes
+        # gl_billings_df["amount"]   = pd.to_numeric(gl_billings_df["amount"], errors="coerce").fillna(0.0)
+        # gl_billings_df["adj_rate"] = pd.to_numeric(gl_billings_df["adj_rate"], errors="coerce").fillna(1.0)
+
+        # gl_billings_df["billing_period_start"] = pd.to_datetime(gl_billings_df["billing_period_start"], errors="coerce")
+        # gl_billings_df["billing_period_end"]   = pd.to_datetime(gl_billings_df["billing_period_end"], errors="coerce")
+        # gl_billings_df["charge_date"]          = pd.to_datetime(gl_billings_df["charge_date"], errors="coerce")
+        # gl_billings_df["post_month"]           = pd.to_datetime(gl_billings_df["post_month"], errors="coerce")
+        
+
         if self.property_df is None :
             self.getPropertyData(self.property_data_file)
         if self.unit_mix_df is None :
             self.get_unit_mix_df(self.property_data_file)
-        if self.adj_df is None :
-            self.adj_df = self.get_adj_df(self.property_data_file)
-        gl_billings_df = pd.merge(gl_billings_df, self.adj_df, on='type', how='left')
-        
-        # NEW: ensure numeric + datetime dtypes
-        gl_billings_df["amount"]   = pd.to_numeric(gl_billings_df["amount"], errors="coerce").fillna(0.0)
-        gl_billings_df["adj_rate"] = pd.to_numeric(gl_billings_df["adj_rate"], errors="coerce").fillna(1.0)
 
-        gl_billings_df["billing_period_start"] = pd.to_datetime(gl_billings_df["billing_period_start"], errors="coerce")
-        gl_billings_df["billing_period_end"]   = pd.to_datetime(gl_billings_df["billing_period_end"], errors="coerce")
-        gl_billings_df["charge_date"]          = pd.to_datetime(gl_billings_df["charge_date"], errors="coerce")
-        gl_billings_df["post_month"]           = pd.to_datetime(gl_billings_df["post_month"], errors="coerce")
-        
+        # Ensure numeric + datetime dtypes (NO adjustments; NO adj_rate)
+        gl_billings_df["amount"] = pd.to_numeric(gl_billings_df.get("amount"), errors="coerce").fillna(0.0)
+        for c in ["billing_period_start","billing_period_end","charge_date","post_month"]:
+            if c in gl_billings_df.columns:
+                gl_billings_df[c] = pd.to_datetime(gl_billings_df[c], errors="coerce")
+
+
+
+
+
+
+
         property_df = self.property_df
         unit_mix_df = self.unit_mix_df
         ttl_occ = property_df['ttl_occ'].iloc[0]
 
-        gross_sf = property_df['gross_sf'].iloc[0]
-        net_sf = property_df['net_sf'].iloc[0]
-        state = property_df['state'].iloc[0]
-        perc_ttl_sqft = net_sf / gross_sf
+        # Removed
+        # gross_sf = property_df['gross_sf'].iloc[0]
+        # net_sf = property_df['net_sf'].iloc[0]
+        # state = property_df['state'].iloc[0]
+        # perc_ttl_sqft = net_sf / gross_sf
 
         # merge rent roll and unit_mix_df on Unit_Type
         rent_roll_df = pd.merge(rent_roll_df, unit_mix_df, on='Unit_Type', how='left')
@@ -290,6 +314,24 @@ class CalcUtilityBillings :
                     Move_Out_Date = rr_row['Move_Out']
                     Move_In_Date = rr_row['Move_In']
                     
+
+                    # --- move_out normalization (no fabricated month-end fallback) ---
+                    move_out_raw = pd.to_datetime(Move_Out_Date, errors="coerce")
+                    lease_exp    = pd.to_datetime(rr_row.get("Lease_Exp", pd.NaT), errors="coerce")
+
+                    # For math we can use the real move_out; if missing, we'll use lease_exp; else NaT
+                    move_out_for_math = move_out_raw if pd.notna(move_out_raw) else lease_exp
+
+                    #Removed section of old code that was not working properly
+                    # # --- move_out normalization & fallback (to match Expected) ---
+                    # move_out_filled = pd.to_datetime(Move_Out_Date, errors="coerce")
+                    # if pd.isna(move_out_filled):
+                    #     # If rent-roll has no Move_Out, fall back to Lease_Exp; else use billing period end
+                    #     move_out_filled = pd.to_datetime(rr_row.get("Lease_Exp", pd.NaT), errors="coerce")
+                    # if pd.isna(move_out_filled):
+                    #     # Only as last resort, fall back to billing_period_end
+                    #     move_out_filled = pd.to_datetime(billing_period_end, errors="coerce")
+
                     #Removing section of old code that was not working properly
                     # perc_month = 100
                     # if billing_period_start is datetime64 :
@@ -305,29 +347,91 @@ class CalcUtilityBillings :
                     # New code to calculate perc_month
                     # --- ensure proper datetime types for the period and move dates ---
                     # Normalize billing period dates (from GL) to real datetime.datetime
-                    billing_period_start = pd.to_datetime(billing_period_start).to_pydatetime()
-                    billing_period_end   = pd.to_datetime(billing_period_end).to_pydatetime()
 
-                    # Normalize resident dates (may be NaT) to pandas Timestamps or NaT
-                    Move_In_Date  = pd.to_datetime(Move_In_Date,  errors="coerce")
-                    Move_Out_Date = pd.to_datetime(Move_Out_Date, errors="coerce")
+                    # Remove the first version of adjustment to match make actual to expected
+                    # billing_period_start = pd.to_datetime(billing_period_start).to_pydatetime()
+                    # billing_period_end   = pd.to_datetime(billing_period_end).to_pydatetime()
 
-                    # Compute percentage of month occupied during the billing period
-                    perc_month = self.percentage_days_in_period(
-                        billing_period_start,
-                        billing_period_end,
-                        Move_In_Date,
-                        Move_Out_Date
-                    )
+                    # # Normalize resident dates (may be NaT) to pandas Timestamps or NaT
+                    # Move_In_Date  = pd.to_datetime(Move_In_Date,  errors="coerce")
+                    # Move_Out_Date = pd.to_datetime(Move_Out_Date, errors="coerce")
 
-                    # Guard: if something went wrong and a string came back, default to full month
-                    if isinstance(perc_month, str):
-                        perc_month = 100.0
+                    # # Compute percentage of month occupied during the billing period
+                    # perc_month = self.percentage_days_in_period(
+                    #     billing_period_start,
+                    #     billing_period_end,
+                    #     Move_In_Date,
+                    #     Move_Out_Date
+                    # )
 
-                    # Convert percent to fraction
-                    perc_month = perc_month / 100.0
+                    # # Guard: if something went wrong and a string came back, default to full month
+                    # if isinstance(perc_month, str):
+                    #     perc_month = 100.0
+
+                    # # Convert percent to fraction
+                    # perc_month = perc_month / 100.0
                 
-                    
+
+                    curr = pd.to_datetime(billing_period_start).normalize()
+                    mi   = pd.to_datetime(Move_In_Date,      errors="coerce")
+                    mo   = pd.to_datetime(move_out_for_math, errors="coerce")
+
+                    def same_month(a, b):
+                        return pd.notna(a) and pd.notna(b) and (a.year == b.year) and (a.month == b.month)
+
+                    month_start = curr
+                    month_end   = (curr + pd.offsets.MonthEnd(0)).normalize()
+                    days_in_mo  = (month_end - month_start).days + 1
+
+                    if same_month(curr, mi) and same_month(mi, mo):
+                        # moved in and out within the billing month
+                        days = (mo.normalize() - mi.normalize()).days + 1
+                        perc_month = max(0.0, min(1.0, days / days_in_mo))
+                    elif same_month(curr, mi) and (pd.isna(mo) or mo > month_end):
+                        # moved in during the billing month, still in unit through month end
+                        days = (month_end - mi.normalize()).days + 1
+                        perc_month = max(0.0, min(1.0, days / days_in_mo))
+                    elif same_month(curr, mo) and (pd.isna(mi) or mi < month_start):
+                        # moved out during the billing month, was already in unit at month start
+                        days = (mo.normalize() - month_start).days + 1
+                        perc_month = max(0.0, min(1.0, days / days_in_mo))
+                    else:
+                        # not a partial in the billing month
+                        perc_month = 1.0
+
+
+
+                    # Remove the second version of adjustment to match make actual to expected
+                    # # --- perc_month (fraction), matching Expected outcomes ---
+                    # curr = pd.to_datetime(billing_period_start).normalize()
+                    # mi   = pd.to_datetime(Move_In_Date,  errors="coerce")
+                    # mo   = pd.to_datetime(move_out_filled, errors="coerce")
+
+                    # def same_month(a, b):
+                    #     return pd.notna(a) and pd.notna(b) and (a.year == b.year) and (a.month == b.month)
+
+                    # month_start = curr
+                    # month_end   = (curr + pd.offsets.MonthEnd(0)).normalize()
+                    # days_in_mo  = (month_end - month_start).days + 1
+
+                    # if same_month(curr, mi) and same_month(mi, mo):
+                    #     days = (mo.normalize() - mi.normalize()).days + 1
+                    #     perc_month = max(0.0, min(1.0, days / days_in_mo))
+                    # elif same_month(curr, mi):
+                    #     days = (month_end - mi.normalize()).days + 1
+                    #     perc_month = max(0.0, min(1.0, days / days_in_mo))
+                    # elif same_month(curr, mo):
+                    #     days = (mo.normalize() - month_start).days + 1
+                    #     perc_month = max(0.0, min(1.0, days / days_in_mo))
+                    # else:
+                    #     perc_month = 1.0
+
+
+
+
+
+
+
                     charge_date = None
                     post_month = None
                     for gl_index, gl_row in gl_billings_df.iterrows() :
@@ -352,39 +456,79 @@ class CalcUtilityBillings :
                         # else :
                         #     bill_due_date = datetime.today().strftime('%m/%d/%Y')
 
-                        if 'bill_due_date' in gl_row.index:
-                            bill_due_date = pd.to_datetime(gl_row['bill_due_date'], errors='coerce')
+
+                        # Remove this code to match to expected
+                        # if 'bill_due_date' in gl_row.index:
+                        #     bill_due_date = pd.to_datetime(gl_row['bill_due_date'], errors='coerce')
+                        # else:
+                        #     bill_due_date = pd.Timestamp.today().normalize()
+
+
+                        if pd.notna(move_out_raw):
+                            bill_due_date = move_out_raw + pd.DateOffset(months=1)
+                        elif pd.notna(lease_exp):
+                            bill_due_date = lease_exp + pd.DateOffset(months=1)
                         else:
-                            bill_due_date = pd.Timestamp.today().normalize()
+                            bill_due_date = pd.to_datetime(billing_period_end) + pd.DateOffset(months=1)
 
-                        # get the adj_rate
-                        if 'adj_rate' in gl_row.index :
-                            adj_rate = gl_row['adj_rate'] 
-                        else :
-                            adj_rate = 1
 
-                        # get the proration of based upon the square footage and adj_rate
 
-                        gl_amount = gl_row['amount'] * perc_ttl_sqft * adj_rate
 
-                        # if this is in Texas and is water or sewer then we need to use the option 4 calculation
-                        if state == 'TX' and (gl_ix == 'water' or gl_ix == 'sewerbil') :
-                            # get 50% of the gl_amount
-                            gl_amount_50 = gl_amount * 0.5
-                            amount_sf = perc_sqft * gl_amount_50 * perc_month
-                            amount_occ = perc_occ * gl_amount_50 * perc_month
-                            amount = amount_sf + amount_occ
-                        else : 
-                            # if we are not in Texas or this is not water or sewer then we use the normal calculation
-                            amount = perc_sqft * gl_amount * perc_month
+
+
+
+
+
+                        # Remove this code to match to expected
+                        # # --- bill_due_date = move_out + 1 month (per README and Expected)
+                        # if pd.notna(move_out_filled):
+                        #     bill_due_date = move_out_filled + pd.DateOffset(months=1)
+                        # else:
+                        #     # if somehow still missing, fall back to one month after billing period end
+                        #     bill_due_date = pd.to_datetime(billing_period_end) + pd.DateOffset(months=1)
+
+
+                       
+                        # Remove this code to match to expected
+                        # # get the adj_rate
+                        # if 'adj_rate' in gl_row.index :
+                        #     adj_rate = gl_row['adj_rate'] 
+                        # else :
+                        #     adj_rate = 1
+
+                        # # get the proration of based upon the square footage and adj_rate
+
+                        # gl_amount = gl_row['amount'] * perc_ttl_sqft * adj_rate
+
+                        # # if this is in Texas and is water or sewer then we need to use the option 4 calculation
+                        # if state == 'TX' and (gl_ix == 'water' or gl_ix == 'sewerbil') :
+                        #     # get 50% of the gl_amount
+                        #     gl_amount_50 = gl_amount * 0.5
+                        #     amount_sf = perc_sqft * gl_amount_50 * perc_month
+                        #     amount_occ = perc_occ * gl_amount_50 * perc_month
+                        #     amount = amount_sf + amount_occ
+                        # else : 
+                        #     # if we are not in Texas or this is not water or sewer then we use the normal calculation
+                        #     amount = perc_sqft * gl_amount * perc_month
                     
+                        # --- Expected model: sqft share × GL amount × perc_month (no adj_rate, no net_sf, no TX split) ---
+                        gl_amount = pd.to_numeric(gl_row['amount'], errors="coerce")
+                        amount    = perc_sqft * gl_amount * perc_month
+
+
                         gl_notes = gl_row['notes'] + ' ' + str(gl_row['billing_period_start'].strftime('%m/%d/%Y')) + ' to ' + str(gl_row['billing_period_end'].strftime('%m/%d/%Y'))
                     
+                        # Removed old code to match expected
+                        # billings_row_s = { 'Unit':Unit, 'Resident':Resident, 'Name':Tenant_Name, 'SqFt':SqFt, 'Rent':Rent, 'code':gl_ix, 'perc_sqft':perc_sqft,
+                        #                 'amount':amount, 'gl_code':gl_row['gl_code'], 'ar_gl_code':gl_row['ar_gl_code'], 'gl_notes':gl_notes, 'gl_billing_period_start':gl_row['billing_period_start'], 
+                        #         'gl_billing_period_end':gl_row['billing_period_end'], 'gl_reading_prev':reading_prev, 'gl_reading_current':reading_current, 'charge_date':charge_date, 
+                        #         'post_month':post_month, 'bill_due_date':bill_due_date, 'move_in':Move_In_Date, 'move_out':move_out_filled, 'perc_month':perc_month }
+                        
                         billings_row_s = { 'Unit':Unit, 'Resident':Resident, 'Name':Tenant_Name, 'SqFt':SqFt, 'Rent':Rent, 'code':gl_ix, 'perc_sqft':perc_sqft,
                                         'amount':amount, 'gl_code':gl_row['gl_code'], 'ar_gl_code':gl_row['ar_gl_code'], 'gl_notes':gl_notes, 'gl_billing_period_start':gl_row['billing_period_start'], 
                                 'gl_billing_period_end':gl_row['billing_period_end'], 'gl_reading_prev':reading_prev, 'gl_reading_current':reading_current, 'charge_date':charge_date, 
-                                'post_month':post_month, 'bill_due_date':bill_due_date, 'move_in':Move_In_Date, 'move_out':Move_Out_Date, 'perc_month':perc_month }
-                        
+                                'post_month':post_month, 'bill_due_date':bill_due_date, 'move_in':Move_In_Date, 'move_out':move_out_raw, 'perc_month':perc_month }
+
                         billings_row = pd.Series(billings_row_s).to_frame().T
                         billings_df = pd.concat([billings_df, billings_row], ignore_index=True)
                     # add the base fee
@@ -393,12 +537,24 @@ class CalcUtilityBillings :
                     else :
                         disable_fee = 'N'
                     if disable_fee != 'Y' :
+
+
                         billings_row_bf = { 'Unit':Unit, 'Resident':Resident, 'Name':Tenant_Name, 'SqFt':SqFt, 'Rent':Rent, 'code':'Utility', 'perc_sqft':perc_sqft,
                                             'amount':self.base_fee_to_resident, 'gl_code':self.base_fee_gl_code, 'ar_gl_code':self.base_fee_ar_gl_code, 
                                             'gl_notes':'Tenant Service Fee ' + str(gl_row['billing_period_start'].strftime('%m/%d/%Y')) + ' to ' + str(gl_row['billing_period_end'].strftime('%m/%d/%Y')), 
                                             'gl_billing_period_start':gl_row['billing_period_start'], 
                                             'gl_billing_period_end':gl_row['billing_period_end'], 'gl_reading_prev':reading_prev, 'gl_reading_current':reading_current, 'charge_date':charge_date, 
-                                            'post_month':post_month, 'bill_due_date':bill_due_date, 'move_in':Move_In_Date, 'move_out':Move_Out_Date, 'perc_month':perc_month }
+                                            'post_month':post_month, 'bill_due_date':bill_due_date, 'move_in':Move_In_Date, 'move_out':move_out_raw, 'perc_month':perc_month }
+
+                        # billings_row_bf = { 'Unit':Unit, 'Resident':Resident, 'Name':Tenant_Name, 'SqFt':SqFt, 'Rent':Rent, 'code':'Utility', 'perc_sqft':perc_sqft,
+                        #                     'amount':self.base_fee_to_resident, 'gl_code':self.base_fee_gl_code, 'ar_gl_code':self.base_fee_ar_gl_code, 
+                        #                     'gl_notes':'Tenant Service Fee ' + str(gl_row['billing_period_start'].strftime('%m/%d/%Y')) + ' to ' + str(gl_row['billing_period_end'].strftime('%m/%d/%Y')), 
+                        #                     'gl_billing_period_start':gl_row['billing_period_start'], 
+                        #                     'gl_billing_period_end':gl_row['billing_period_end'], 'gl_reading_prev':reading_prev, 'gl_reading_current':reading_current, 'charge_date':charge_date, 
+                        #                     'post_month':post_month, 'bill_due_date':bill_due_date, 'move_in':Move_In_Date, 'move_out':Move_Out_Date, 'perc_month':perc_month }
+
+
+
                         billings_row = pd.Series(billings_row_bf).to_frame().T
                         billings_df = pd.concat([billings_df, billings_row], ignore_index=True)
                     self.billing_cycle_start_date = gl_row['billing_period_start']
