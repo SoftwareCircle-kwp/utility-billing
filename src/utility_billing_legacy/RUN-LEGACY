@@ -19,7 +19,7 @@ Using **uv** (recommended):
 uv add pandas numpy openpyxl python-dateutil reportlab PyPDF2
 
 # Using pip (alternative):
-python -m pip ensure --upgrade
+python -m ensurepip --upgrade
 python -m pip install --upgrade pip
 python -m pip install pandas numpy openpyxl python-dateutil reportlab PyPDF2
 # Note: We intentionally do not install the large legacy requirements file. The scripts only need the few packages above to run.
@@ -69,7 +69,7 @@ reading_prev, reading_current, bill_due_date, adj_rate
 Workbook with multiple sheets:
 propertydata (usecols A:O)
     Required columns:
-    property_code, property_name, address1, city, state, zip, phone,
+    property_code, property_name, address1, address2, city, state, zip, phone,
     primary_contact, email, website, gross_sf, net_sf, ttl_occ, disable_fee
 
 unitmix (usecols A:F)

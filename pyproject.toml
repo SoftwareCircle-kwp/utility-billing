@@ -5,10 +5,8 @@ description = "Notebooks and code for the Utility Billing project"
 readme = "README.md"
 requires-python = ">=3.13"
 
-# Core runtime deps for notebooks
+# Core runtime deps (keep this lean for production use)
 dependencies = [
-  "jupyterlab",
-  "ipykernel",
   "pandas>=2.3.2",
   "numpy>=2.2.6",
   "openpyxl>=3.1.5",
@@ -18,8 +16,6 @@ dependencies = [
 ]
 
 # Optional but common data stack (uncomment as needed)
-# "pandas",
-# "numpy",
 # "pyarrow",
 # "polars",
 # "matplotlib",
@@ -34,12 +30,14 @@ target-version = ["py311","py312","py313"]
 [tool.ruff]
 line-length = 100
 select = ["E","F","I","B","UP","FASTAPI","PANDAS"]
-ignore = ["E203"]  # if you like Black-compatible slicing
+ignore = ["E203"]  # Black-compatible slicing
 
 [dependency-groups]
+# Dev-only tools (install with: `uv sync --group dev`)
 dev = [
-    "black>=25.1.0",
-    "pre-commit>=4.3.0",
-    "ruff>=0.13.0",
+  "jupyterlab",
+  "ipykernel",
+  "black>=25.1.0",
+  "pre-commit>=4.3.0",
+  "ruff>=0.13.0",
 ]
-# (uv reads this file and produces a lock for reproducibility)

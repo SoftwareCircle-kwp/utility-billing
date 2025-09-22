@@ -473,12 +473,6 @@ class CalcUtilityBillings :
 
 
 
-
-
-
-
-
-
                         # Remove this code to match to expected
                         # # --- bill_due_date = move_out + 1 month (per README and Expected)
                         # if pd.notna(move_out_filled):
